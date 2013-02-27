@@ -84,12 +84,12 @@
 # Floating point
 (define-table f ["fadd", "fsub", "fmul", "fdiv", "fcmp", "fabs", "frsb", "fmax", "frcp", "frsqrt", "fnmul", "fmin", "fld1", "fld0", "fop14", "fop15"])
 
-# Width of Memory Operation   
+# Width of Memory Operation 
 #   00 Long/Word  (32 bits)
 #   01 Half Word  (16 bits)
 #   10 Byte       (8 bits)
 #   11 Signed Half (16 bits)
-(define-table w ["", "h", "b", "sh"])
+(define-table w ["u32", "u16", "u8", "s16"])
 
 #
 # 16 bit instructions
@@ -359,9 +359,9 @@
 #
 #   and R is from: V, VX, VY, H, HX, HY
 #
-(define-table D ["H(y,0)", "V(y,0)", "H(y,16)", "V(y,16)", "H(y,32)", "V(y,32)", "H(y,48)", "V(y,48)", "HX(y,0)", "VX(y,0)", "HX(y,32)", "VX(y,32)", "HY(y,0)", "VY(y,0)", "-", "-"])
-(define-table A ["H(y,0)", "V(y,0)", "H(y,16)", "V(y,16)", "H(y,32)", "V(y,32)", "H(y,48)", "V(y,48)", "HX(y,0)", "VX(y,0)", "HX(y,32)", "VX(y,32)", "HY(y,0)", "VY(y,0)", "0", "0"])
-(define-table B ["H(y,0)", "V(y,0)", "H(y,16)", "V(y,16)", "H(y,32)", "V(y,32)", "H(y,48)", "V(y,48)", "HX(y,0)", "VX(y,0)", "HX(y,32)", "VX(y,32)", "HY(y,0)", "VY(y,0)", "#", "#"])
+(define-table D ["H(y:0)", "V(y:0)", "H(y:16)", "V(y:16)", "H(y:32)", "V(y:32)", "H(y:48)", "V(y:48)", "HX(y:0)", "VX(y:0)", "HX(y:32)", "VX(y:32)", "HY(y:0)", "VY(y:0)", "-", "-"])
+(define-table A ["H(y:0)", "V(y:0)", "H(y:16)", "V(y:16)", "H(y:32)", "V(y:32)", "H(y:48)", "V(y:48)", "HX(y:0)", "VX(y:0)", "HX(y:32)", "VX(y:32)", "HY(y:0)", "VY(y:0)", "Scalar", "0"])
+(define-table B ["H(y:0)", "V(y:0)", "H(y:16)", "V(y:16)", "H(y:32)", "V(y:32)", "H(y:48)", "V(y:48)", "HX(y:0)", "VX(y:0)", "HX(y:32)", "VX(y:32)", "HY(y:0)", "VY(y:0)", "Scalar", "#"])
 
 
 # The Accumulator (ACC) is a additional 16 element vector register contained in the Vector ALU.  Arithmetic on the
@@ -380,7 +380,7 @@
 
 #  The <rep> modifier causes an instruction to be repeated 1, 2, 4, 8, 16, 32, 64 or until the scalar status register sr negative
 #  flag n is cleared.  Instructions will always execute at least once.
-(define-table R ["", "REP2", "REP4", "REP8", "REP16", "REP32", "REP64", "REPLT"])
+(define-table R ["REP1", "REP2", "REP4", "REP8", "REP16", "REP32", "REP64", "REPLT"])
 
 #  The <pred> modifier selects which vector lanes should write back their result and whether each lane should update its
 #  Zero, Negative and Carry flags at the end of the operation. There are 16 sets of flags corresponding to the width
@@ -388,6 +388,16 @@
 (define-table P ["", "NV", "IFZ", "IFNZ", "IFN", "IFNN", "IFC", "IFNC"])
 (define-table F ["", "SETF"]
 
+# Index increment
+(define-table G ["", "?", "++", "?"])
+(define-table H ["", "?", "++", "?"])
+(define-table I ["", "?", "++", "?"])
+
+# Width of Memory Operation for 80 bit operations
+#   00 Byte       (8 bits)
+#   01 Half Word  (16 bits)
+#   10 Long/Word  (32 bits)
+(define-table J ["w8", "w16", "w32", "w?"])
 #
 #  The <acc> modifier controls updates to the accumulator. If CLRA is set then the accumulator will be cleared on the 
 #  execution of the instruction but on repetitions it is ignored.  When ACC is set the Accumulator is incremented by
@@ -409,21 +419,21 @@
 #
 #   vop vd, va, vb <modifiers>
 
-(define-table v ["mov","mask","odd","even", "altl","altu","brev","ror", "lsl","asl","lsr","asr", "op12","op13","op14","op15", "and","or","eor","bic", "cnt","log2","op22","op23", "min","max","dist","op27", "op28","sgn","clamp","cmpge", "add","adds","addc","addsc", "sub","subs","subc","subsc", "rsub","rsubs","rsubc","rsubsc", "op44","op45","op46","op47", "mul","muls","mulhd","op51", "op52","op53","op54","op55", "op56","op57","op58","op59", "op60","op61","op62","op63"])
+(define-table v ["mov","mask","cmbod","cmbev", "altl","altu","brev","ror", "lsl","asl","lsr","asr", "op12","op13","op14","op15", "and","or","eor","andn", "popcnt","log2","op22","op23", "min","max","dist","dist?", "min?","sgn","clamp","cmpge", "add","adds","addc","addsc", "sub","subs","subc","subsc", "rsub","rsubs","rsubc","rsubsc", "op44","op45","op46","op47", "mul","muls","mulmd","mulmds", "mulhd.ss","mulhd.su","mulhd.us","mulhd.uu", "mulhdr.ss","mulhdr.su","mulhdr.us","mulhdr.uu", "op60","op61","op62","op63"])
 
 # 48 bit vector format
-1111 00xx 0xxx xrrr DDDD dddd ddaa aaaa aaaa yyyy yzzz zsss "; vld %s{D}%d{d}, (r%d{s}) ; x=%02x{x} r=%x{r} A=%03x{a} y=%03x{y} z=%x{z}"
-1111 00xx 1xxx xrrr dddd dddd ddAA AAaa aaaa yyyy yzzz zsss "; vst %s{A}%d{a}, (r%d{s}) ; x=%02x{x} r=%x{r} D=%03x{d} y=%03x{y} z=%x{z}"
+1111 00xx 0xxw wrrr DDDD dddd ddaa aaaa aaaa yyyy yzzz zsss "; vld%s{w} %s{D}%d{d}, (r%d{s}) ; x=%02x{x} r=%x{r} A=%03x{a} y=%03x{y} z=%x{z}"
+1111 00xx 1xxw wrrr dddd dddd ddAA AAaa aaaa yyyy yzzz zsss "; vst%s{w} %s{A}%d{a}, (r%d{s}) ; x=%02x{x} r=%x{r} D=%03x{d} y=%03x{y} z=%x{z}"
 1111 01xv vvvv vrrr DDDD dddd ddAA AAaa aaaa y0BB BBbb bbbb "; v%s{v} %s{D}%d{d}, %s{A}%d{a}, %s{B}%d{b}"
 1111 01xv vvvv vrrr DDDD dddd ddAA AAaa aaaa y1zz zzii iiii "; v%s{v} %s{D}%d{d}, %s{A}%d{a}, #%d{i} ; x=%x{x} r=%x{r} y=%x{y} z=%x{z}"
 
 # 80 bit vector format
 
-1111 10xx 0xxx xRRR DDDD dddd ddaa aaaa aaaa yyyy ykkk kkkk gggg ggut ttuu zzzz zzzz zzzz zzzs ssjj "; vld %s{D}%d{d} %02x{g}, %d{(j*128)+k}(r%d{s}+=r%d{t}) %s{R} ; x=%02x{x} A=%03x{a} y=%02x{y} z=%04x{z}"
-1111 10xx 1xxx xRRR dddd dddd ddAA AAaa aaaa yyyy ykkk kkkk uttt uuhh hhhh zzzz zzzz zzzz zzzs ssjj "; vst %s{A}%d{a} %02x{h}, %d{(j*128)+k}(r%d{s}+=r%d{t}) %s{R} ; x=%02x{x} D=%03x{d} y=%02x{y} z=%04x{z}"
+1111 10xx 0xxJ JRRR DDDD dddd ddaa aaaa aaaa yyyy ykkk kkkk gggg GGut ttuu zzzz zzzz zzzz zzzs ssjj "; vld%s{J} %s{D}y=%d{d}%s{G} %02x{g}, %d{(j*128)+k}(r%d{s}+=r%d{t}) %s{R} ; x=%02x{x} A=%03x{a} y=%02x{y} z=%04x{z} u=%02x{u}"
+1111 10xx 1xxJ JRRR dddd dddd ddAA AAaa aaaa yyyy ykkk kkkk uttt uuhh hhHH zzzz zzzz zzzz zzzs ssjj "; vst%s{J} %s{A}y=%d{a}%s{H} %02x{h}, %d{(j*128)+k}(r%d{s}+=r%d{t}) %s{R} ; x=%02x{x} D=%03x{d} y=%02x{y} z=%04x{z} u=%02x{u}"
 
-1111 11xv vvvv vRRR DDDD dddd ddAA AAaa aaaa F0BB BBbb bbbb gggg gghh hhhh zzzz PPPz zzzz zzkk kkkk "; v%s{v} %s{D}%d{d} %02x{g}, %s{A}%d{a} %02x{h}, %s{B}%d{b} %02x{k} %s{R} %s{P} %s{F} #%x{x} %04x{z}"
-1111 11xv vvvv vRRR DDDD dddd ddAA AAaa aaaa F1ll llll llll gggg gghh hhhh zzzz PPPz zzzz zzkk kkkk "; v%s{v} %s{D}%d{d} %02x{g}, %s{A}%d{a} %02x{h}, #%d{(k*1024)+l} %s{R} %s{P} %s{F} #%x{x} %04x{z}"
+1111 11xv vvvv vRRR DDDD dddd ddAA AAaa aaaa F0BB BBbb bbbb gggg GGhh hhHH zzzz PPPz zzzz zzkk kkII "; vr%s{v} %s{D}y=%d{d}%s{G} %02x{g}, %s{A}y=%d{a}%s{H} %02x{h}, %s{B}y=%d{b}%s{I} %02x{k} %s{R} %s{P} %s{F} #%x{x} %04x{z}"
+1111 11xv vvvv vRRR DDDD dddd ddAA AAaa aaaa F1ll llll llll gggg GGhh hhHH zzzz PPPz zzzz zzkk kkkk "; vi%s{v} %s{D}y=%d{d}%s{G} %02x{g}, %s{A}y=%d{a}%s{H} %02x{h}, #%d{(k*1024)+l} %s{R} %s{P} %s{F} #%x{x} %04x{z}"
 
 # Fallback patterns
 

@@ -1,0 +1,71 @@
+Work in progress:
+16 bit fixed point FIR filter for the Raspberry Pi GPU.
+
+How to setup the RPi:
+https://github.com/hermanhermitage/videocoreiv/wiki/VideoCore-IV-Kernels-under-Linux
+More background info:
+https://github.com/hermanhermitage/videocoreiv/wiki
+
+Build the test program on the RPi itself, not on an x86 PC. Otherwise differences in endianness
+will screw up the assembler output. Filter taps and filter input in Q15 fixed point format.
+A shift operation in firfilter.s could be changed to use different format.
+
+TODO:
+Right now only the (rounded) upper word of every 16x16 bit multiplication is used and accumulated.
+So weak signals and small filter coefficients are basically ignored.
+
+Performance:
+Execution time measured using "time" command.
+
+Clock frequencies:
+> for src in arm core h264 isp v3d uart pwm emmc pixel vec hdmi dpi ; do \
+>     echo -e "$src:\t$(vcgencmd measure_clock $src)" ; \
+> done
+arm:    frequency(45)=700000000
+core:   frequency(1)=250000000
+h264:   frequency(28)=250000000
+isp:    frequency(42)=250000000
+v3d:    frequency(43)=250000000
+uart:   frequency(22)=3000000
+pwm:    frequency(25)=0
+emmc:   frequency(47)=100000000
+pixel:  frequency(29)=0
+vec:    frequency(10)=108000000
+hdmi:   frequency(9)=0
+dpi:    frequency(4)=0
+
+
+TEST_WITHOUT_FILTER
+(Filter routine is not called at all, time needed to allocate memory and setup data)
+0.17user 0.02system 0:00.24elapsed 77%CPU (0avgtext+0avgdata 456maxresident)k
+
+"FAST" not defined in firfilter.s
+
+TEST_1M
+(1024*1024 samples, 128 taps)
+0.16user 0.03system 0:00.46elapsed 41%CPU (0avgtext+0avgdata 456maxresident)k
+
+TEST_2M
+(2*1024*1024 samples, 128 taps)
+0.17user 0.02system 0:00.66elapsed 28%CPU (0avgtext+0avgdata 456maxresident)k
+
+TEST_3M
+(3*1024*1024 samples, 128 taps)
+0.15user 0.04system 0:00.86elapsed 21%CPU (0avgtext+0avgdata 456maxresident)k
+
+
+"FAST" defined in firfilter.s
+
+TEST_1M
+(1024*1024 samples, 128 taps)
+0.17user 0.02system 0:00.34elapsed 54%CPU (0avgtext+0avgdata 456maxresident)k
+
+TEST_2M
+(2*1024*1024 samples, 128 taps)
+0.14user 0.05system 0:00.43elapsed 44%CPU (0avgtext+0avgdata 456maxresident)k
+
+TEST_3M
+(3*1024*1024 samples, 128 taps)
+0.16user 0.03system 0:00.52elapsed 36%CPU (0avgtext+0avgdata 456maxresident)k
+
+

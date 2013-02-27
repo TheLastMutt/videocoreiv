@@ -63,7 +63,8 @@ void emit(u32 x)      { align(4); unsigned _ = x; emitb(_&0xff); emitb((_>>8)&0x
 
 void emit1(u32 x)     { emith(x); }
 void emit2(u32 x, u32 y)   { emit1(x); emit1(y); } 
-void emit3(u32 x, u32 y, u32 z) { emit1(x); emit1(z); emit1(y); } 
+void emit3(u32 x, u32 y, u32 z) { emit1(x); emit1(y); emit1(z); } 
+void emit5(u32 x, u32 y, u32 z, u32 a, u32 b) { emit1(x); emit1(y); emit1(z); emit1(a); emit1(b); } 
 
 void fillb(u32 size, u32 value)  { int i; for(i=0; i<size; i+=2) emit1(value|(value<<8)); }  
 
@@ -111,6 +112,38 @@ void bc_o(enum table_c c,  unsigned int target) {
     bc_o7(c, offset);
   else
     bc_o23(c, offset);
+}
+
+void bc_rd_rs_o(enum table_c c, int rd, int rs, unsigned int target) {
+  int offset = pcrel(target)/2;
+  if (offset>=-512 && offset<=511)
+    bc_rd_rs_o10(c, rd, rs, offset);
+  else
+    quit("bc_rd_rs_o branch too far", 1);
+}
+
+void addcmpb_c_rd_i_u_o(enum table_c c, int rd, int i, int u, unsigned int target) {
+  /* rd += i;
+   * if (rd <cc> u) then branch 
+   * i: 4 bit signed
+   * u: 6 bit unsigned */
+  int offset = pcrel(target)/2;
+  if (offset>=-128 && offset<=127)
+  {
+    // offset OK
+    if(i>=-8 && i<=7)
+    {
+      // increment OK
+      if(u>=0 && u<=63)
+        addcmpb_c_rd_i_u_o8(c, rd, i, u, offset);
+      else
+        quit("addcmpb_c_rd_i_u_o8 immediate compare value too large", 1);
+    }
+    else
+      quit("addcmpb_c_rd_i_u_o8 increment too large", 1); 
+  }
+  else
+    quit("addcmpb_c_rd_i_u_o8 branch too far", 1);  
 }
 
 void op(int op, int rd, int rs) {

@@ -1,0 +1,6 @@
+*.bin
+vcio.h
+build
+filtertest
+char_dev
+
