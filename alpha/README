@@ -1,0 +1,4 @@
+The file alpha.s recreates the example alpha kernel from
+https://github.com/hermanhermitage/videocoreiv/wiki/VideoCore-IV-Kernels-under-Linux
+using the tinyasm.
+
