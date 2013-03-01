@@ -224,6 +224,8 @@ static void dumpBuffer(int16_t * buffer, uint32_t size)
 // 3 megasamples
 #define TEST_3M (1024*1024*3)
 
+#define TEST_SMALL (32)
+
 // Test to perform
 #define TEST_CASE TEST_3M
 
@@ -284,12 +286,14 @@ int main(int argc, char *argv[])
    user_s16p[i] = 0xFFFF;
    
    // Source data 1 (filter input)
+   // If full filter output is desired (for seamless concatenation
+   // of data chunks) pad source data with zeroes at the end as needed
    user_s16p = (int16_t *)user[INPUT];
-   for(i=0;i<INPUT_SIZE/2;i++)
+   for(i=0;i<(INPUT_SIZE/2)-100;i++)
    {
-     user_s16p[i] = 0x6000;
+     user_s16p[i] = 0x1000;
    }
-   user_s16p[0] = 0x0800;
+   //user_s16p[0] = 0xFF80;
    
    // Source data 2 (filter taps)
    // If you have less than 128 taps then pad them
@@ -299,10 +303,10 @@ int main(int argc, char *argv[])
    memset(user[TAPS], 0x00, TAPS_SIZE);
    user_s16p = (int16_t *)user[TAPS];
    
-   // Just some test stuff, delayed averaging filter
+   // Just some test stuff
    for(i=60;i<124;i++)
    {
-     user_s16p[i] = 32768/64;
+     user_s16p[i] = 4;
    }
 
    printf("Input\n");
@@ -323,8 +327,12 @@ int main(int argc, char *argv[])
    // execute the GPU code:        code          r0              r1            r2           r3   r4       r5
    (void)execute_code(file_desc, buffer[CODE], buffer[OUTPUT], buffer[INPUT], buffer[TAPS], 0,  TEST_CASE, 0);
 #endif
-   printf("Output\n");
-   dumpBuffer((int16_t *)user[OUTPUT], 512);
+   printf("Output start\n");
+   dumpBuffer((int16_t *)user[OUTPUT], 256);
+#if TEST_CASE != TEST_WITHOUT_FILTER
+   printf("Output end\n");
+   dumpBuffer(((int16_t *)user[OUTPUT])+TEST_CASE-256, 256);
+#endif
 
    // free up (important - if you don't call mem_free that memory will be lost for good)
   munmap(user[INPUT], INPUT_SIZE);

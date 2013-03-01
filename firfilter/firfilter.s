@@ -17,8 +17,8 @@
 //
 
 // Uncomment this to use the 16 bit accumulators included in every pixel processing unit.
-// This is faster but intermediate results might overflow and distort output.
-//#define FAST
+// This is faster but I am not sure if this works in every case
+#define FAST
 
 // Configuration for 128 taps
 // If this is changed the source code below has to be changed, too.
@@ -42,10 +42,10 @@
   // r0 = &output
   // r1 = &input
   // r2 = &taps
-  // r3 unused
+  // r3 is result accumulator (low words)
   // r4 = number of samples to calculate, must be multiple of 16
   // r5 used for temporary storage
-  // r6 is result accumulator
+  // r6 is result accumulator (high words)
   // r7 is loop counter
   
   // Labels
@@ -57,6 +57,8 @@
   // r7 is loop counter
   push_r6_rn(1);
   
+  // Multiply number of samples by 2 to get number of bytes
+  lsli(r4, 1);
   // Calculate destination end pointer
   add(r4, r0);
   
@@ -95,13 +97,22 @@ label(loop16samples);
   // Move 16th column one element up
   // vc_ifnz makes sure that only the last value will be moved,
   vr80c(v_mov, HXy0, 0, INC, HXy0, 0, INC, HXy0, 1, INC, REPCOUNT, vc_ifnz);
+  
+  // **************************
+  // Sum high words of multiplication
+  // results in r6
+  // **************************
 
 #ifdef FAST
 
   // Faster, but intermediate results might overflow.
   // ADDACCSAT saturates intermediate results to 0x7FFF.
-  // ADDACC doesn't. I don't know which one gives better results
-  vr80acc(v_mulhdr_ss, HXy32, 0, INC, HXy0, 0, 0, INC, HXy0, 32, INC, REPCOUNT, vc_all, KEEPF, (ADDACC|CLRA|UPDACC));
+  // ADDACC doesn't.
+  // Adding with overflow might work because an overflow should be
+  // temporary. Filter taps usually sum up to 0 or 1.
+  // If filter gain is greater than 1 the saturation might be useful??
+  // v_mulhd_ss: signed multiply, high result
+  vr80acc(v_mulhd_ss, HXy32, 0, INC, HXy0, 0, 0, INC, HXy0, 32, INC, REPCOUNT, vc_all, KEEPF, (ADDACC|CLRA|UPDACC));
   vi80sru(v_add, HXy32, (DATAROW-1), NOINC, HXy32, 0, (DATAROW-1), NOINC, 0, REP1, vc_all, KEEPF, sru_sum, r6);
   
 #else
@@ -109,30 +120,65 @@ label(loop16samples);
   // A bit slower but uses 32 bit accumulator which does not overflow
   // Clear accumulator register
   movi(r6, 0);
-  // Signed multiply with rounding, add all 16 multiplication results, treat as signed
+  // Signed multiply, add all 16 multiplication results, treat as signed
   // Store high result to HX(32, 0) (not even needed)
-  //                   destination      input data         filter taps
-  vr80sru(v_mulhdr_ss, HXy32, 0, NOINC, HXy0, 0, 0, NOINC, HXy0, 32, INC, REP1, vc_all, KEEPF, sru_sum, r5);
+  //                  destination      input data         filter taps
+  vr80sru(v_mulhd_ss, HXy32, 0, NOINC, HXy0, 0, 0, NOINC, HXy0, 32, INC, REP1, vc_all, KEEPF, sru_sum, r5);
   add(r6, r5);
   // Repeat this until DATAROW-1 is reached
-  vr80sru(v_mulhdr_ss, HXy32, 1, NOINC, HXy0, 0, 1, NOINC, HXy0, 33, INC, REP1, vc_all, KEEPF, sru_sum, r5);
+  vr80sru(v_mulhd_ss, HXy32, 1, NOINC, HXy0, 0, 1, NOINC, HXy0, 33, INC, REP1, vc_all, KEEPF, sru_sum, r5);
   add(r6, r5);
-  vr80sru(v_mulhdr_ss, HXy32, 2, NOINC, HXy0, 0, 2, NOINC, HXy0, 34, INC, REP1, vc_all, KEEPF, sru_sum, r5);
+  vr80sru(v_mulhd_ss, HXy32, 2, NOINC, HXy0, 0, 2, NOINC, HXy0, 34, INC, REP1, vc_all, KEEPF, sru_sum, r5);
   add(r6, r5);
-  vr80sru(v_mulhdr_ss, HXy32, 3, NOINC, HXy0, 0, 3, NOINC, HXy0, 35, INC, REP1, vc_all, KEEPF, sru_sum, r5);
+  vr80sru(v_mulhd_ss, HXy32, 3, NOINC, HXy0, 0, 3, NOINC, HXy0, 35, INC, REP1, vc_all, KEEPF, sru_sum, r5);
   add(r6, r5);
-  vr80sru(v_mulhdr_ss, HXy32, 4, NOINC, HXy0, 0, 4, NOINC, HXy0, 36, INC, REP1, vc_all, KEEPF, sru_sum, r5);
+  vr80sru(v_mulhd_ss, HXy32, 4, NOINC, HXy0, 0, 4, NOINC, HXy0, 36, INC, REP1, vc_all, KEEPF, sru_sum, r5);
   add(r6, r5);
-  vr80sru(v_mulhdr_ss, HXy32, 5, NOINC, HXy0, 0, 5, NOINC, HXy0, 37, INC, REP1, vc_all, KEEPF, sru_sum, r5);
+  vr80sru(v_mulhd_ss, HXy32, 5, NOINC, HXy0, 0, 5, NOINC, HXy0, 37, INC, REP1, vc_all, KEEPF, sru_sum, r5);
   add(r6, r5);
-  vr80sru(v_mulhdr_ss, HXy32, 6, NOINC, HXy0, 0, 6, NOINC, HXy0, 38, INC, REP1, vc_all, KEEPF, sru_sum, r5);
+  vr80sru(v_mulhd_ss, HXy32, 6, NOINC, HXy0, 0, 6, NOINC, HXy0, 38, INC, REP1, vc_all, KEEPF, sru_sum, r5);
   add(r6, r5);
-  vr80sru(v_mulhdr_ss, HXy32, 7, NOINC, HXy0, 0, 7, NOINC, HXy0, 39, INC, REP1, vc_all, KEEPF, sru_sum, r5);
+  vr80sru(v_mulhd_ss, HXy32, 7, NOINC, HXy0, 0, 7, NOINC, HXy0, 39, INC, REP1, vc_all, KEEPF, sru_sum, r5);
   add(r6, r5);
 #endif
 
-  // shift result left to get correct Q15*Q15 result
-  lsli(r6, 1);
+  // **************************
+  // Sum low words of multiplication
+  // results in r3
+  // **************************
+  
+  // Here we cannot use the fast version because the overflow is essential.
+  
+  // Clear accumulator register
+  movi(r3, 0);
+  // Signed multiply, add all 16 multiplication results, treat as unsigned
+  // Here we need unsigned sums to put the results together with the high word results
+  // Store high result to HX(32, 0) (not even needed)
+  //             destination      input data         filter taps
+  vr80sru(v_mul, HXy32, 0, NOINC, HXy0, 0, 0, NOINC, HXy0, 32, INC, REP1, vc_all, KEEPF, sru_sumu, r5);
+  add(r3, r5);
+  // Repeat this until DATAROW-1 is reached
+  vr80sru(v_mul, HXy32, 1, NOINC, HXy0, 0, 1, NOINC, HXy0, 33, INC, REP1, vc_all, KEEPF, sru_sumu, r5);
+  add(r3, r5);
+  vr80sru(v_mul, HXy32, 2, NOINC, HXy0, 0, 2, NOINC, HXy0, 34, INC, REP1, vc_all, KEEPF, sru_sumu, r5);
+  add(r3, r5);
+  vr80sru(v_mul, HXy32, 3, NOINC, HXy0, 0, 3, NOINC, HXy0, 35, INC, REP1, vc_all, KEEPF, sru_sumu, r5);
+  add(r3, r5);
+  vr80sru(v_mul, HXy32, 4, NOINC, HXy0, 0, 4, NOINC, HXy0, 36, INC, REP1, vc_all, KEEPF, sru_sumu, r5);
+  add(r3, r5);
+  vr80sru(v_mul, HXy32, 5, NOINC, HXy0, 0, 5, NOINC, HXy0, 37, INC, REP1, vc_all, KEEPF, sru_sumu, r5);
+  add(r3, r5);
+  vr80sru(v_mul, HXy32, 6, NOINC, HXy0, 0, 6, NOINC, HXy0, 38, INC, REP1, vc_all, KEEPF, sru_sumu, r5);
+  add(r3, r5);
+  vr80sru(v_mul, HXy32, 7, NOINC, HXy0, 0, 7, NOINC, HXy0, 39, INC, REP1, vc_all, KEEPF, sru_sumu, r5);
+  add(r3, r5);
+  
+  // Put both results together (32 bit)
+  lsli(r6, 16);
+  add(r6, r3);
+
+  // shift result right to get correct Q15*Q15 result into low word
+  asri(r6, 15);
   
   // Store r6 at *dest, low word only
   st_w_rd_rs_inc(w_h, r6, r0);
